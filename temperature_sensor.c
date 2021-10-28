@@ -1,11 +1,10 @@
-
 #include <DHT.h>
 #include <ESP8266WiFi.h>
 
 #define DHTTYPE DHT11
 
-const char* ssid = "iPhone de Quentin";
-const char* password = "Welcome2021";
+const char* ssid = "Esp";
+const char* password = "dodoboxx";
 
 WiFiServer server(80);
 
@@ -15,7 +14,6 @@ const int DHTPin = 5;
 DHT dht(DHTPin, DHTTYPE);
 
 static char celsiusTemp[7];
-static char fahrenheitTemp[7];
 static char humidityTemp[7];
 
 void setup()
@@ -61,20 +59,16 @@ void loop()
         {
           float h = dht.readHumidity();
           float t = dht.readTemperature();
-          float f = dht.readTemperature(true);
-          if (isnan(h) || isnan(t) || isnan(f)) 
+          if (isnan(h) || isnan(t))
           {
             Serial.println("Failed to read from DHT sensor!");
             strcpy(celsiusTemp,"Failed");
-            strcpy(fahrenheitTemp, "Failed");
             strcpy(humidityTemp, "Failed");
           }
           else
           {
             float hic = dht.computeHeatIndex(t, h, false);
             dtostrf(hic, 6, 2, celsiusTemp);
-            float hif = dht.computeHeatIndex(f, h);
-            dtostrf(hif, 6, 2, fahrenheitTemp);
             dtostrf(h, 6, 2, humidityTemp);
           }
           client.println("HTTP/1.1 200 OK");
@@ -82,16 +76,9 @@ void loop()
           client.println("Connection: close");
           client.println();
 
-          client.println("<!DOCTYPE HTML>");
-          client.println("<html>");
-          client.println("<head></head><body><h1>ESP8266 - Temperature and Humidity</h1><h3>Temperature in Celsius: ");
+          
           client.println(celsiusTemp);
-          client.println("*C</h3><h3>Temperature in Fahrenheit: ");
-          client.println(fahrenheitTemp);
-          client.println("*F</h3><h3>Humidity: ");
           client.println(humidityTemp);
-          client.println("%</h3><h3>");
-          client.println("</body></html>");
           break;
         }
         if (c == '\n') 
