@@ -1,13 +1,17 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <DHT.h>
+#include <Process.h>
 
 #define DHTTYPE DHT11
 
+void sendData(str url);
+
 // Pin of all modules
+// VCC -> 3v; Signal -> D1; GND -> G
 const int DS18B20_PIN = 4;
 const int MQ6_PIN = 'A0';
-const int DHT_PIN = 5;
+const int DHT_PIN = 'D1';
 
 // boolean to active modules
 bool air_quality = true;
@@ -27,6 +31,7 @@ void setup() {
   Serial.begin(9600);
   // Start the DS18B20 sensor
   sensors.begin();
+  sendData('https://172.17.14.33/api/devices')
 }
 
 void loop() {
@@ -62,4 +67,23 @@ void loop() {
 
   
   delay(60000);
+}
+
+void sendData(str url) {
+    Process p;
+  p.begin("curl");
+  p.addParameter('-k');
+  p.addParameter(url);
+  p.addParameter('-X');
+  p.addParameter('GET')
+  p.addParameter('-H')
+  p.addParameter('accept: application/json')
+  
+  p.run();
+  while (p.available()>0) {
+    char c = p.read();
+    Serial.print(c);
+  }
+  // Ensure the last bit of data is sent.
+  Serial.flush(); 
 }
