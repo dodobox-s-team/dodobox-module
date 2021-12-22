@@ -8,10 +8,8 @@
 
 #define DHTTYPE DHT11
 
-// Fingerprint for demo URL, expires on June 2, 2021, needs to be updated well before this date
+// Fingerprint for Https
 const uint8_t fingerprint[20] = {0x6A, 0xED, 0x3D, 0x4C, 0x32, 0xAA, 0x70, 0xF9, 0x9E, 0x25, 0x59, 0xAF, 0xDD, 0x0C, 0x27, 0x7C, 0x11, 0x68, 0x89, 0x0C};
-const char* remote_hostess = "google.com";
-const char* remote_host = "severin.dodobox.site";
 const char* METHOD_GET = "GET";
 const char* METHOD_POST = "POST";
 const char* METHOD_PUT = "PUT";
@@ -65,9 +63,9 @@ void setup() {
 
 
 void loop() {
-  // wait for WiFi connection
+  // Vérifie à chaque fois qu'il est connecté au WiFi
   if ((WiFi.status() == WL_CONNECTED)) {
-    // Récupérer les informations sur les modules de notre esp
+    // Récupérer les informations sur les modules de notre esp grâce à son IP
     // Faire le chemin de la requête
     char cible[150];
     String cibleString = "https://severin.dodobox.site/api/devices/ip/" + WiFi.localIP().toString();
@@ -76,7 +74,8 @@ void loop() {
 
     // Faire la requête
     DynamicJsonDocument devices = httpRequest(METHOD_GET, cible, "");
-    
+
+    // Passer dans chaque module pour vérifier s'il est activé
     for(int i=0; i < devices.size(); i++) {
       if(devices[i]["type"]==1) {
         TEMPERATURE = devices[i]["toggle"];
@@ -90,46 +89,47 @@ void loop() {
       }
     }
     
-
+    // Passer dans chaque module activer pour récolter les données et les envoyer
     if(TEMPERATURE) {
       Serial.println("temperature");
-      float temperature = dht.readTemperature();
-      if (isnan(temperature)) {
+      float temperature = dht.readTemperature();                                            // Lire la température
+      if (isnan(temperature)) {                                                             // Si le module est absent ou défaillant, le désactiver dans la DB
         Serial.println("Failed to read temperature from DHT sensor!");
         sprintf(cible, "https://severin.dodobox.site/api/devices/%d/false", ID_TEMPERATURE);
-        DynamicJsonDocument devices = httpRequest(METHOD_PUT, cible, "");
+        httpRequest(METHOD_PUT, cible, "");
       } else {
         Serial.printf("%f °C");
-        
+        //httpRequest(METHOD_POST, "https://severin.dodobox.site/api/graph", "");           // Envoyer les données
       }
     }
     if(HUMIDITY) {
       Serial.println("humidity");
-      float humidity = dht.readHumidity();
-      if (isnan(humidity)) {
+      float humidity = dht.readHumidity();                                                // Lire l'humidité
+      if (isnan(humidity)) {                                                              // Si le module est absent ou défaillant, le désactiver dans la DB
         Serial.println("Failed to read humidity from DHT sensor!");
         sprintf(cible, "https://severin.dodobox.site/api/devices/%d/false", ID_HUMIDITY);
-        DynamicJsonDocument devices = httpRequest(METHOD_PUT, cible, "");
+        httpRequest(METHOD_PUT, cible, "");
       } else {
         Serial.printf("%f %");
-        
+        //httpRequest(METHOD_POST, "https://severin.dodobox.site/api/graph", "");           // Envoyer les données
       }
     }
     if(AIR_QUALITY) {
       Serial.println("quality");
-      quality = analogRead(MQ6_PIN);
-      if (isnan(quality)) {
+      quality = analogRead(MQ6_PIN);                                                      // Lire la qualité de l'air
+      if (isnan(quality)) {                                                               // Si le module est absent ou défaillant, le désactiver dans la DB
         Serial.println("Failed to read air quality from MQ-6 sensor!");
-        
+        sprintf(cible, "https://severin.dodobox.site/api/devices/%d/false", ID_AIR_QUALITY);
+        httpRequest(METHOD_PUT, cible, "");
       } else {
         Serial.println(quality);
-        
+        //httpRequest(METHOD_POST, "https://severin.dodobox.site/api/graph", "");           // Envoyer les données
       }
     }
   }
 
-  Serial.println("Wait 10s before next round...");
-  delay(30000);
+  Serial.println("Wait 60s before next round...");
+  delay(60000);
 }
 
 DynamicJsonDocument httpRequest(const char methode[], char cible[], char data[]) {
@@ -139,7 +139,7 @@ DynamicJsonDocument httpRequest(const char methode[], char cible[], char data[])
   HTTPClient https;
 
   Serial.print("[HTTPS] begin...\n");
-  if (https.begin(*client, cible)) {  // HTTPS
+  if (https.begin(*client, cible)) {
     Serial.printf("[HTTPS] %s...\n", methode);
 
     // Faire la requête GET ou POST
@@ -150,24 +150,21 @@ DynamicJsonDocument httpRequest(const char methode[], char cible[], char data[])
       httpCode = (methode == METHOD_POST) ? https.POST(data) : https.GET();
     }
     
-    // httpCode will be negative on error
+    // httpCode est negatif en cas d'erreur
     if (httpCode > 0) {
-      // HTTP header has been send and Server response header has been handled
+      // HTTP header est envoyé
       Serial.printf("[HTTPS] %s... code: %d\n", methode, httpCode);
 
-      // file found at server
+      // Fichier trouvé au serveur
       if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
         String payload = https.getString();
         Serial.println(payload);
-        //JsonObject[] response = dataStringToJsonList(payload);
         DynamicJsonDocument doc(1024);
         DeserializationError error = deserializeJson(doc, payload);
-        if (error) {
+        if(error) {
             Serial.print(F("deserializeJson() failed: "));
             Serial.println(error.f_str());
         }
-        //JsonArray response = doc.as<JsonArray>();
-        
         return doc;
       }
     } else {
