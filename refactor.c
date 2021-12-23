@@ -88,7 +88,7 @@ void loop() {
         ID_AIR_QUALITY = devices[i]["id"];
       }
     }
-    
+
     // Passer dans chaque module activer pour récolter les données et les envoyer
     if(TEMPERATURE) {
       Serial.println("temperature");
